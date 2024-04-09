@@ -63,8 +63,8 @@ This project will be evaluated by its ability to run a novel program written in 
 
 |Codebase size reduction | Score impact |
 |:-----------------------|:-------------|
-|2K                      | +10%         |
-|4K                      | +20%         |
-|6K                      | +30%         |
-|10K                     | +40%         |
-|12.5k+                  | +50%         |
+|20K                      | +10%         |
+|22K                      | +20%         | 
+|25K                      | +30%         |
+|30K                      | +40%         |
+|35k+                     | +50%         |
