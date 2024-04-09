@@ -8,12 +8,7 @@ course syllabus:
 > * Students may choose to develop a "code golfing" language which solves the golfing challenges undertaken during the semester<sup>†</sup>
 > * Students may choose to develop a "golfed" version of the `jlox` interpreter
 
-To the above project ideas, students may consider:
-
-* writing an [esoteric language](https://en.wikipedia.org/wiki/Esoteric_programming_language) (`eso-lang`) themed or designed around a non-programmatic concern<sup>††</sup>
-
 <sup>†</sup> Additional holes released _after_ the project has been assigned will be provided by the instructor on the appropriate branch(es)
-<sup>††</sup> Examples include [piet](https://www.dangermouse.net/esoteric/piet.html), [wenyan](https://wy-lang.org/), or [Taxi](https://bigzaphod.github.io/Taxi/)
 
 ## Rules
 
