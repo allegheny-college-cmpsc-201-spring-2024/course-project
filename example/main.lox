@@ -1,0 +1,23 @@
+import "toaster";
+import "bagel";
+import "register";
+
+// Setting up variables
+var t = toaster();
+var r = register();
+
+/* 
+ For loop creates arbitrary amount of bagels 
+ adding the total of toasted bagels, multiplying
+ number of bagels to achieve cost basis
+*/
+
+for(var i = 0; i < 10; i = i + 1) {
+  var b = bagel();
+  print b.dough + " bagel with " + b.topping;
+  t.toast(b);
+  r.add(2);
+  b.toasted == true ? r.add(1.5) : 0;
+}
+
+print "$" + r.total;
