@@ -1,0 +1,11 @@
+-------------------------------------------------------------------------------
+Test set: com.interpreter.lox.BaseTests
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.321 s <<< FAILURE! - in com.interpreter.lox.BaseTests
+testMultipleInherit{String[]}[1]  Time elapsed: 0.186 s  <<< FAILURE!
+java.lang.AssertionError: 
+
+Expected: a string matching the pattern 'Cooked perch$|Cooked halibut$|Cooked boot$'
+     but: was ""
+	at com.interpreter.lox.BaseTests.testMultipleInherit(BaseTests.java:61)
+

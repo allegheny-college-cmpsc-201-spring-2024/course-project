@@ -1,0 +1,15 @@
+class register {
+
+  init() {
+    this.cost = 0;
+  }
+
+  add(amt) {
+    this.cost = this.cost + amt;
+  }
+  
+  total {
+    return this.cost;
+  }
+
+}

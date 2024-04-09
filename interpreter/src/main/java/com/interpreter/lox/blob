@@ -1,0 +1,2469 @@
+package com.interpreter.lox;
+
+import java.util.HashMap;
+import java.util.Map;
+
+class Environment {
+
+  final Environment enclosing;
+  private final Map<String, Object> values = new HashMap<>();
+
+  Environment() {
+    enclosing = null;
+  }
+
+  Environment(Environment enclosing) {
+    this.enclosing = enclosing;
+  }
+
+  Object get(Token name) {
+    if (values.containsKey(name.lexeme)) {
+      return values.get(name.lexeme);
+    }
+
+    if (enclosing != null) return enclosing.get(name);
+
+    throw new RuntimeError(name,
+      "Undefined variable '" + name.lexeme + "'.");
+  }
+
+  void assign(Token name, Object value) {
+    if (values.containsKey(name.lexeme)) {
+      values.put(name.lexeme, value);
+      return;
+    }
+
+    if (enclosing != null) {
+      enclosing.assign(name, value);
+      return;
+    }
+
+    throw new RuntimeError(name,
+      "Undefined variable '" + name.lexeme + "'.");
+  }
+
+  String get(String name) {
+    if(values.containsKey(name)){
+      return values.get(name).toString();
+    }
+    return null;
+  }
+
+  void define(String name, Object value) {
+    values.put(name, value);
+  }
+
+  Environment ancestor(int distance) {
+    Environment environment = this;
+    for (int i = 0; i < distance; i++) {
+      environment = environment.enclosing;
+    }
+    return environment;
+  }
+
+  Object getAt(int distance, String name) {
+    return ancestor(distance).values.get(name);
+  }
+
+  void assignAt(int distance, Token name, Object value) {
+    ancestor(distance).values.put(name.lexeme, value);
+  }
+
+}
+package com.interpreter.lox;
+
+import java.util.List;
+
+abstract class Expr {
+  interface Visitor<R> {
+    R visitAssignExpr(Assign expr);
+    R visitBinaryExpr(Binary expr);
+    R visitCallExpr(Call expr);
+    R visitGetExpr(Get expr);
+    R visitGroupingExpr(Grouping expr);
+    R visitLiteralExpr(Literal expr);
+    R visitLogicalExpr(Logical expr);
+    R visitSetExpr(Set expr);
+    R visitSuperExpr(Super expr);
+    R visitThisExpr(This expr);
+    R visitUnaryExpr(Unary expr);
+    R visitVariableExpr(Variable expr);
+    R visitConditionalExpr(Conditional expr);
+    R visitFunctionExpr(Function expr);
+  }
+  static class Assign extends Expr {
+    Assign(Token name, Expr value) {
+      this.name = name;
+      this.value = value;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitAssignExpr(this);
+    }
+
+    final Token name;
+    final Expr value;
+  }
+  static class Binary extends Expr {
+    Binary(Expr left, Token operator, Expr right) {
+      this.left = left;
+      this.operator = operator;
+      this.right = right;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitBinaryExpr(this);
+    }
+
+    final Expr left;
+    final Token operator;
+    final Expr right;
+  }
+  static class Call extends Expr {
+    Call(Expr callee, Token paren, List<Expr> arguments) {
+      this.callee = callee;
+      this.paren = paren;
+      this.arguments = arguments;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitCallExpr(this);
+    }
+
+    final Expr callee;
+    final Token paren;
+    final List<Expr> arguments;
+  }
+  static class Get extends Expr {
+    Get(Expr object, Token name) {
+      this.object = object;
+      this.name = name;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitGetExpr(this);
+    }
+
+    final Expr object;
+    final Token name;
+  }
+  static class Grouping extends Expr {
+    Grouping(Expr expression) {
+      this.expression = expression;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitGroupingExpr(this);
+    }
+
+    final Expr expression;
+  }
+  static class Literal extends Expr {
+    Literal(Object value) {
+      this.value = value;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitLiteralExpr(this);
+    }
+
+    final Object value;
+  }
+  static class Logical extends Expr {
+    Logical(Expr left, Token operator, Expr right) {
+      this.left = left;
+      this.operator = operator;
+      this.right = right;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitLogicalExpr(this);
+    }
+
+    final Expr left;
+    final Token operator;
+    final Expr right;
+  }
+  static class Set extends Expr {
+    Set(Expr object, Token name, Expr value) {
+      this.object = object;
+      this.name = name;
+      this.value = value;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitSetExpr(this);
+    }
+
+    final Expr object;
+    final Token name;
+    final Expr value;
+  }
+  static class Super extends Expr {
+    Super(Token keyword, Token method) {
+      this.keyword = keyword;
+      this.method = method;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitSuperExpr(this);
+    }
+
+    final Token keyword;
+    final Token method;
+  }
+  static class This extends Expr {
+    This(Token keyword) {
+      this.keyword = keyword;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitThisExpr(this);
+    }
+
+    final Token keyword;
+  }
+  static class Unary extends Expr {
+    Unary(Token operator, Expr right) {
+      this.operator = operator;
+      this.right = right;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitUnaryExpr(this);
+    }
+
+    final Token operator;
+    final Expr right;
+  }
+  static class Variable extends Expr {
+    Variable(Token name) {
+      this.name = name;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitVariableExpr(this);
+    }
+
+    final Token name;
+  }
+  static class Conditional extends Expr {
+    Conditional(Expr expression, Expr thenBranch, Expr elseBranch) {
+      this.expression = expression;
+      this.thenBranch = thenBranch;
+      this.elseBranch = elseBranch;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitConditionalExpr(this);
+    }
+
+    final Expr expression;
+    final Expr thenBranch;
+    final Expr elseBranch;
+  }
+  static class Function extends Expr {
+    Function(List<Token> parameters, List<Stmt> body) {
+      this.parameters = parameters;
+      this.body = body;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitFunctionExpr(this);
+    }
+
+    final List<Token> parameters;
+    final List<Stmt> body;
+  }
+
+  abstract <R> R accept(Visitor<R> visitor);
+}
+package com.interpreter.lox;
+
+import java.lang.Math;
+import java.util.Map;
+import java.util.List;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Random;
+
+class Interpreter implements Expr.Visitor<Object>,
+                             Stmt.Visitor<Void> {
+
+  final Environment globals = new Environment();
+  private Environment environment = globals;
+  private final Map<Expr, Integer> locals = new HashMap<>();
+  private static Object uninitialized = new Object();
+  private static boolean toBeContinued = false;
+  private static class BreakException extends RuntimeException {}
+  private static class ContinueException extends RuntimeException {}
+  private static boolean isCorrectType = true;
+  private static boolean isMissingImport = false;
+
+  Interpreter() {
+    globals.define("clock", new LoxCallable() {
+
+      @Override
+      public int arity() { return 0; }
+
+      @Override
+      public Object call(Interpreter interpreter,
+                         List<Object> arguments) {
+        return (double)System.currentTimeMillis() / 1000.0;
+      }
+
+      @Override
+      public String toString() { return "<native fn>"; }
+    });
+
+    globals.define("abs", new LoxCallable() {
+
+      @Override
+      public int arity() { return 1; }
+
+      @Override
+      public Object call(Interpreter interpreter,
+                         List<Object> arguments) {
+        double arg;
+        try{
+          arg = Double.parseDouble(arguments.get(0).toString());
+          if(arg < 0) {
+            arg = -1 * arg;
+          }
+          return arg;
+        } catch (NumberFormatException err) {
+          isCorrectType = false;
+        }
+        return null;
+      }
+
+      @Override
+      public String toString() { return "<native fn>"; }
+    });
+
+    globals.define("pow", new LoxCallable() {
+
+      @Override
+      public int arity() { return 2; }
+
+      @Override
+      public Object call(Interpreter interpreter,
+                         List<Object> arguments) {
+        double m1;
+        double m2;
+        try {
+          m1 = Double.parseDouble(arguments.get(0).toString());
+          m2 = Double.parseDouble(arguments.get(1).toString());
+          for (int i = 1; i < m2; i++) {
+            m1 += m1;
+          }
+          return m1;
+        } catch (NumberFormatException err) {
+          isCorrectType = false;
+        }
+        return null;
+      }
+
+      @Override
+      public String toString() { return "<native fn>"; }
+    });
+
+    globals.define("random", new LoxCallable() {
+
+      @Override
+      public int arity() { return 2; }
+
+      @Override
+      public Object call(Interpreter interpreter,
+                         List<Object> arguments) {
+        double start;
+        double end;
+        try {
+          start = Double.parseDouble(arguments.get(0).toString());
+          end = Double.parseDouble(arguments.get(1).toString());
+          Random rand = new Random();
+          int seed = rand.nextInt(
+            ((int) Math.floor(end) + 1) - (int) Math.floor(start)
+          ) + (int) Math.floor(start);
+          return (double) seed;
+        } catch (NumberFormatException err) {
+         isCorrectType = false;
+        }
+        return null;
+      }
+
+      @Override
+      public String toString() { return "<native fn>"; }
+
+    });
+  }
+
+  void interpret(List<Stmt> statements) {
+    try {
+      for (Stmt statement : statements) {
+        execute(statement);
+      }
+    } catch (RuntimeError error) {
+      Main.runtimeError(error);
+    }
+  }
+
+  String interpret(Expr expression) {
+    try{
+        Object value = evaluate(expression);
+        return stringify(value);
+    } catch (RuntimeError error) {
+        Main.runtimeError(error);
+        return null;
+    }
+  }
+
+  @Override
+  public Object visitLiteralExpr(Expr.Literal expr) {
+    return expr.value;
+  }
+
+  @Override
+  public Object visitLogicalExpr(Expr.Logical expr) {
+    Object left = evaluate(expr.left);
+    if (expr.operator.type == TokenType.OR) {
+      if (isTruthy(left)) return left;
+    } else {
+      if (!isTruthy(left)) return left;
+    }
+    return evaluate(expr.right);
+  }
+
+  @Override
+  public Object visitSetExpr(Expr.Set expr) {
+    Object object = evaluate(expr.object);
+    if(!(object instanceof LoxInstance)) {
+      throw new RuntimeError(expr.name,
+        "Only instances have fields.");
+    }
+    Object value = evaluate(expr.value);
+    ((LoxInstance) object).set(expr.name, value);
+    return value;
+  }
+
+  @Override
+  public Object visitSuperExpr(Expr.Super expr) {
+    int distance = locals.get(expr);
+    LoxClass superclass = (LoxClass)environment.getAt(
+      distance, "super"
+    );
+    LoxInstance object = (LoxInstance)environment.getAt(
+      distance - 1, "this"
+    );
+    LoxFunction method = superclass.findMethod(expr.method.lexeme);
+
+    if (method == null) {
+      throw new RuntimeError(expr.method,
+        "Undefined property '" + expr.method.lexeme + "'.");
+    }
+
+    return method.bind(object);
+  }
+
+  @Override
+  public Object visitThisExpr(Expr.This expr) {
+    return lookUpVariable(expr.keyword, expr);
+  }
+
+  @Override
+  public Object visitGroupingExpr(Expr.Grouping expr) {
+    return evaluate(expr.expression);
+  }
+
+  @Override
+  public Object visitUnaryExpr(Expr.Unary expr) {
+    Object right = evaluate(expr.right);
+
+    switch (expr.operator.type) {
+      case BANG:
+        return !isTruthy(right);
+      case MINUS:
+        checkNumberOperand(expr.operator, right);
+        return -(double)right;
+    }
+
+    return null;
+  }
+
+  @Override
+  public Object visitVariableExpr(Expr.Variable expr) {
+    return lookUpVariable(expr.name, expr);
+  }
+
+  private Object lookUpVariable(Token name, Expr expr) {
+    Integer distance = locals.get(expr);
+    if (distance != null) {
+      return environment.getAt(distance, name.lexeme);
+    } else {
+      try {
+        return environment.get(name);
+      } catch (Exception err) {
+        return globals.get(name);
+      }
+    }
+  }
+
+  private void checkNumberOperand(Token operator, Object operand) {
+    if (operand instanceof Double) return;
+    throw new RuntimeError(operator, "Operand must be a number.");
+  }
+
+  private void checkNumberOperands(Token operator, Object left, Object right) {
+    if (left instanceof Double && right instanceof Double) return;
+    throw new RuntimeError(operator, "Operands must be numbers.");
+  }
+
+  private void checkNumberArgument(Token operator, Object argument) {
+    if (argument instanceof Double) return;
+    throw new RuntimeError(operator, "Argument must be numeric.");
+  }
+
+  private Object evaluate(Expr expr) {
+    return expr.accept(this);
+  }
+
+  private void execute(Stmt stmt) {
+    stmt.accept(this);
+  }
+
+  void resolve(Expr expr, int depth) {
+    locals.put(expr, depth);
+  }
+
+  void executeBlock(List<Stmt> statements,
+                    Environment environment) {
+    Environment previous = this.environment;
+    try {
+      this.environment = environment;
+      for (Stmt statement : statements) {
+        if(toBeContinued) {
+          toBeContinued = false;
+          continue;
+        }
+        execute(statement);
+      }
+    } finally {
+      this.environment = previous;
+    }
+  }
+
+  @Override
+  public Void visitBlockStmt(Stmt.Block stmt) {
+    executeBlock(stmt.statements, new Environment(environment));
+    return null;
+  }
+
+  @Override
+  public Void visitClassStmt(Stmt.Class stmt) {
+    if (stmt.superclasses != null) {
+      for (Expr.Variable superclass : stmt.superclasses) {
+        Object inheritance = evaluate(superclass);
+        if (!(inheritance instanceof LoxClass)) {
+          throw new RuntimeError(superclass.name,
+            "Superclass must be a class.");
+        }
+      }
+    }
+
+    environment.define(stmt.name.lexeme, null);
+
+    if (stmt.superclasses != null) {
+      for (Expr.Variable superclass : stmt.superclasses) {
+        environment = new Environment(environment);
+        environment.define("super", superclass);
+      }
+   }
+
+    Map<String, LoxFunction> methods = new HashMap<>();
+    for (Stmt.Function method : stmt.methods) {
+      LoxFunction function = new LoxFunction(method.function, environment,
+          method.name.lexeme.equals("init"));
+      methods.put(method.name.lexeme, function);
+    }
+
+    List<LoxClass> inheritances = null;
+
+    if (stmt.superclasses != null) {
+      inheritances = new ArrayList<>();
+      for (Expr.Variable inheritance : stmt.superclasses) {
+        Object superclass = evaluate(inheritance);
+        if(superclass instanceof LoxClass) {
+          inheritances.add((LoxClass)superclass);
+        }
+      }
+    }
+
+    LoxClass loxClass = new LoxClass(stmt.name.lexeme,
+        inheritances, methods);
+
+    if (stmt.superclasses != null) {
+      environment = environment.enclosing;
+    }
+
+    environment.assign(stmt.name, loxClass);
+    return null;
+  }
+
+  @Override
+  public Void visitPrintStmt(Stmt.Print stmt) {
+    Object value = evaluate(stmt.expression);
+    System.out.println(stringify(value));
+    return null;
+  }
+
+  @Override
+  public Void visitImportStmt(Stmt.Import stmt) {
+    return null;
+  }
+
+  @Override
+  public Void visitReturnStmt(Stmt.Return stmt) {
+    Object value = null;
+    if (stmt.value != null) value = evaluate(stmt.value);
+    throw new Return(value);
+  }
+
+  @Override
+  public Void visitVarStmt(Stmt.Var stmt) {
+    Object value = uninitialized;
+    if (stmt.initializer != null) {
+      value = evaluate(stmt.initializer);
+    }
+
+    environment.define(stmt.name.lexeme, value);
+    return null;
+  }
+
+  @Override
+  public Void visitWhileStmt(Stmt.While stmt) {
+    try {
+    while (isTruthy(evaluate(stmt.condition))) {
+      try {
+        execute(stmt.body);
+      } catch (ContinueException ex) {
+        toBeContinued = true;
+      }
+    }
+    } catch (BreakException ex) {
+        // Do nary a thing.
+    }
+    return null;
+  }
+
+  @Override
+  public Object visitAssignExpr(Expr.Assign expr) {
+    Object value = evaluate(expr.value);
+    Integer distance = locals.get(expr);
+    if (distance != null) {
+      environment.assignAt(distance, expr.name, value);
+    } else {
+      globals.assign(expr.name, value);
+    }
+    return value;
+  }
+
+  @Override
+  public Void visitExpressionStmt(Stmt.Expression stmt) {
+    evaluate(stmt.expression);
+    return null;
+  }
+
+  @Override
+  public Void visitFunctionStmt(Stmt.Function stmt) {
+    String fnName = stmt.name.lexeme;
+    environment.define(fnName, new LoxFunction(fnName, stmt.function, environment));
+    return null;
+  }
+
+  @Override
+  public Object visitFunctionExpr(Expr.Function expr) {
+    return new LoxFunction(null, expr, environment);
+  }
+
+  @Override
+  public Void visitIfStmt(Stmt.If stmt) {
+    if (isTruthy(evaluate(stmt.condition))) {
+      execute(stmt.thenBranch);
+    } else if (stmt.elseBranch != null) {
+      execute(stmt.elseBranch);
+    }
+    return null;
+  }
+
+  @Override
+  public Object visitBinaryExpr(Expr.Binary expr) {
+    Object left = evaluate(expr.left);
+    Object right = evaluate(expr.right);
+
+    switch (expr.operator.type) {
+      case GREATER:
+        checkNumberOperands(expr.operator, left, right);
+        return (double)left > (double)right;
+      case GREATER_EQUAL:
+        checkNumberOperands(expr.operator, left, right);
+        return (double)left >= (double)right;
+      case LESS:
+        checkNumberOperands(expr.operator, left, right);
+        return (double)left < (double)right;
+      case LESS_EQUAL:
+        checkNumberOperands(expr.operator, left, right);
+        return (double)left <= (double)right;
+      case MINUS:
+        checkNumberOperands(expr.operator, left, right);
+        return (double)left - (double)right;
+      case PLUS:
+        if (left instanceof Double && right instanceof Double) {
+          return (double)left + (double)right;
+        }
+        if (left instanceof String && right instanceof String) {
+          return (String)left + (String)right;
+        }
+        if (left instanceof String && right instanceof Double) {
+          double value = (double)right;
+          return (String)left + String.valueOf(value);
+        }
+        if (left instanceof String && right instanceof Boolean) {
+          boolean value = (boolean)right;
+          return (String)left + Boolean.toString(value);
+        }
+        if (left instanceof Double && right instanceof String) {
+          return String.valueOf((double)left) + (String)right;
+        }
+        throw new RuntimeError(expr.operator,
+          "Operands must be two numbers or two strings.");
+      case SLASH:
+        checkNumberOperands(expr.operator, left, right);
+        return (double)left / (double)right;
+      case STAR:
+        checkNumberOperands(expr.operator, left, right);
+        return (double)left * (double)right;
+      case BANG_EQUAL:
+        return !isEqual(left, right);
+      case EQUAL_EQUAL:
+        return isEqual(left, right);
+    }
+
+    return null;
+  }
+
+  @Override
+  public Object visitCallExpr(Expr.Call expr) {
+    Object callee = evaluate(expr.callee);
+    List<Object> arguments = new ArrayList<>();
+    for (Expr argument : expr.arguments) {
+      arguments.add(evaluate(argument));
+    }
+
+    if (!(callee instanceof LoxCallable)) {
+      throw new RuntimeError(expr.paren,
+        "Can call only functions and classes.");
+    }
+
+    if (!isCorrectType) {
+      for(Expr arg : expr.arguments) {
+        checkNumberArgument(expr.paren, evaluate(arg));
+      }
+    }
+
+    LoxCallable function = (LoxCallable)callee;
+    if (arguments.size() != function.arity()) {
+      throw new RuntimeError(expr.paren, function + " expected " +
+        function.arity() + " arguments but got " +
+        arguments.size() + ".");
+    }
+
+    return function.call(this, arguments);
+  }
+
+  @Override
+  public Object visitGetExpr(Expr.Get expr) {
+    Object object = evaluate(expr.object);
+    if (object instanceof LoxInstance) {
+      // STUDENT: Is more complicated here; not just an IF statement
+      //          guarding null parameters
+      Object result = ((LoxInstance) object).get(expr.name);
+      if (result instanceof LoxFunction && ((LoxFunction) result).isGetter()) {
+        result = ((LoxFunction) result).call(this, null);
+      }
+      return result;
+    }
+    throw new RuntimeError(expr.name,
+      "Only instances have properties.");
+  }
+
+  public Object visitConditionalExpr(Expr.Conditional expr) {
+    Expr condition = expr.expression;
+    if(isTruthy(evaluate(condition))){
+        return evaluate(expr.thenBranch);
+    } else if (!isTruthy(evaluate(condition)) && expr.elseBranch != null) {
+        return evaluate(expr.elseBranch);
+    }
+    return null;
+  }
+
+  @Override
+  public Void visitBreakStmt(Stmt.Break stmt) {
+    throw new BreakException();
+  }
+
+  @Override
+  public Void visitContinueStmt(Stmt.Continue stmt) {
+    throw new ContinueException();
+  }
+
+  private boolean isTruthy(Object object) {
+    if (object == null) return false;
+    if (object instanceof Boolean) return (boolean)object;
+    return true;
+  }
+
+  private boolean isEqual(Object a, Object b) {
+    if (a == null && b == null) return true;
+    if (a == null) return false;
+    return a.equals(b);
+  }
+
+  private String stringify(Object object) {
+    if (object == null) return "nil";
+    if (object instanceof Double) {
+      String text = object.toString();
+      if (text.endsWith(".0")) {
+        text = text.substring(0, text.length() - 2);
+      }
+      return text;
+    }
+    return object.toString();
+  }
+
+}
+package com.interpreter.lox;
+
+import java.util.List;
+
+interface LoxCallable {
+
+  int arity();
+
+  Object call(Interpreter interpreter, List<Object> arguments);
+
+}
+package com.interpreter.lox;
+
+import java.util.Map;
+import java.util.List;
+
+class LoxClass implements LoxCallable {
+
+  final String name;
+  final List<LoxClass> superclasses;
+  private final Map<String, LoxFunction> methods;
+
+  LoxClass(String name, List<LoxClass> superclasses,
+           Map<String, LoxFunction> methods) {
+    this.superclasses = superclasses;
+    this.name = name;
+    this.methods = methods;
+  }
+
+  LoxFunction findMethod(String name) {
+    if (superclasses != null) {
+      for (LoxClass inherited: superclasses) {
+        if(inherited.findMethod(name) instanceof LoxFunction) {
+          return inherited.findMethod(name);
+        }
+      }
+    }
+
+    if (methods.containsKey(name)) {
+      return methods.get(name);
+    }
+
+    return null;
+  }
+
+  @Override
+  public String toString() {
+    return name;
+  }
+
+  @Override
+  public int arity() {
+    LoxFunction initializer = findMethod("init");
+    if (initializer == null) return 0;
+    return initializer.arity();
+  }
+
+  @Override
+  public Object call(
+    Interpreter interpreter,
+    List<Object> arguments
+  ){
+    LoxInstance instance = new LoxInstance(this);
+    LoxFunction initializer = findMethod("init");
+    if (initializer != null) {
+        initializer.bind(instance).call(interpreter, arguments);
+    }
+    return instance;
+  }
+
+}
+package com.interpreter.lox;
+
+import java.util.List;
+
+class LoxFunction implements LoxCallable {
+
+  @Override
+  public int arity() {
+    return declaration.parameters.size();
+  }
+
+  private final Environment closure;
+  private final String name;
+  private final Expr.Function declaration;
+  private final boolean isInitializer;
+
+  LoxFunction(String name, Expr.Function declaration, Environment closure) {
+    this.name = name;
+    this.closure = closure;
+    this.declaration = declaration;
+    this.isInitializer = false;
+  }
+
+  @Override
+  public String toString() {
+    if (name == null) return "<fn>";
+    return "<fn " + name + ">";
+  }
+
+  LoxFunction(Expr.Function declaration, Environment closure,
+              boolean isInitializer) {
+    this.name = null;
+    this.isInitializer = isInitializer;
+    this.closure = closure;
+    this.declaration = declaration;
+  }
+
+  LoxFunction bind(LoxInstance instance) {
+    Environment environment = new Environment(closure);
+    environment.define("this", instance);
+    return new LoxFunction(declaration, environment,
+                           isInitializer);
+  }
+
+  @Override
+  public Object call(Interpreter interpreter,
+                     List<Object> arguments) {
+    Environment environment = new Environment(closure);
+    // STUDENT: Once again, the IF statement
+    if (declaration.parameters != null) {
+      for (int i = 0; i < declaration.parameters.size(); i++) {
+        environment.define(declaration.parameters.get(i).lexeme,
+          arguments.get(i));
+      }
+    }
+    try {
+      interpreter.executeBlock(declaration.body, environment);
+    } catch (Return returnValue) {
+      if (isInitializer) return closure.getAt(0, "this");
+      return returnValue.value;
+    }
+
+    if (isInitializer) return closure.getAt(0, "this");
+    return null;
+  }
+
+  // STUDENT: This function should be derived by the student,
+  //          though it's possible to do this in another place,
+  //          way.
+  public boolean isGetter() {
+    return declaration.parameters == null;
+  }
+
+}
+package com.interpreter.lox;
+
+import java.util.Map;
+import java.util.HashMap;
+
+class LoxInstance {
+
+  private LoxClass loxClass;
+  private final Map<String, Object> fields = new HashMap<>();
+
+  LoxInstance(LoxClass loxClass) {
+    this.loxClass = loxClass;
+  }
+
+  Object get(Token name) {
+    if (fields.containsKey(name.lexeme)) {
+      return fields.get(name.lexeme);
+    }
+
+    LoxFunction method = loxClass.findMethod(name.lexeme);
+    if (method != null) return method.bind(this);
+
+    throw new RuntimeError(name, 
+      "Undefined property '" + name.lexeme + "'.");
+  }
+
+  void set(Token name, Object value) {
+    fields.put(name.lexeme, value);
+  }
+
+  @Override
+  public String toString() {
+    return loxClass.name + " instance";
+  }
+
+}
+package com.interpreter.lox;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.Path;
+import java.util.List;
+
+public class Main {
+
+  public static final Interpreter interpreter = new Interpreter();
+
+  static boolean hadError = false;
+  static boolean hadRuntimeError = false;
+
+  public static Path importPath = null;
+
+  static void error(int line, String message) {
+    report(line, "", message);
+  }
+
+  static void error(Token token, String message) {
+    if (token.type == TokenType.EOF) {
+      report(token.line, " at end ", message);
+    } else {
+      report(token.line, " at '" + token.lexeme + "'", message);
+    }
+  }
+
+  static void runtimeError(RuntimeError error) {
+    System.err.println("[line " + error.token.line + "] " + error.getMessage());
+    hadRuntimeError = true;
+  }
+
+  private static void report(int line, String where, String message) {
+    System.err.println(
+      "[line " + line + "] Error" + where + ": " + message
+    );
+    hadError = true;
+  }
+
+  private static void runFile(String path) throws IOException {
+    importPath = Paths.get(path).getParent();
+    byte[] bytes = Files.readAllBytes(Paths.get(path));
+    run(new String(bytes, Charset.defaultCharset()));
+    if (hadError) {
+      try{
+        throw new IOException();
+      } catch (IOException e) {
+    }
+      //System.exit(0);
+      //System.exit(65);
+    }
+    if (hadRuntimeError) {
+        throw new IOException();
+        //System.exit(0);
+    }
+  }
+
+  public static void runPrompt() throws IOException {
+    InputStreamReader input = new InputStreamReader(System.in);
+    BufferedReader reader = new BufferedReader(input);
+    for (;;) {
+      hadError = false;
+      System.out.print("> ");
+      Scanner scanner = new Scanner(reader.readLine());
+      List<Token> tokens = scanner.scanTokens();
+      Parser parser = new Parser(tokens);
+      Object syntax = parser.parseRepl();
+      if(hadError) continue;
+      if(syntax instanceof List) {
+        interpreter.interpret((List<Stmt>)syntax);
+      } else if (syntax instanceof Expr) {
+        String result = interpreter.interpret((Expr)syntax);
+        if (result != null) {
+            System.out.println("= " + result);
+        }
+      }
+    }
+  }
+
+  private static void run(String source) {
+    Scanner scanner = new Scanner(source);
+    List<Token> tokens = scanner.scanTokens();
+    Parser parser = new Parser(tokens);
+    List<Stmt> statements = parser.parse();
+    if (hadError) return;
+    Resolver resolver = new Resolver(interpreter);
+    resolver.resolve(statements);
+    if (hadError) return;
+    interpreter.interpret(statements);
+  }
+
+  public static void main(String[] args) throws IOException {
+    if (args.length >= 1) {
+      for (String file : args) {
+        runFile(file);
+      }
+    } else {
+      runPrompt();
+    }
+  }
+}
+package com.interpreter.lox;
+
+import java.util.List;
+import java.util.Arrays;
+import java.util.ArrayList;
+
+import static com.interpreter.lox.TokenType.*;
+
+class Parser {
+
+  private boolean allowExpression;
+  private boolean foundExpression = false;
+  private final List<Token> tokens;
+  private int current = 0;
+  private int loopDepth = 0;
+
+  Parser(List<Token> tokens) {
+    this.tokens = tokens;
+  }
+
+  Object parseRepl() {
+    allowExpression = true;
+    List<Stmt> statements = new ArrayList<>();
+    while(!isAtEnd()) {
+        statements.add(declaration());
+        if(foundExpression) {
+            Stmt last = statements.get(statements.size() - 1);
+            return ((Stmt.Expression)last).expression;
+        }
+        allowExpression = false;
+    }
+    return statements;
+  }
+
+  List<Stmt> parse() {
+    List<Stmt> statements = new ArrayList<>();
+    while (!isAtEnd()) {
+      statements.add(declaration());
+    }
+    return statements;
+  }
+
+  private static class ParseError extends RuntimeException {}
+
+  private Stmt declaration() {
+    try {
+      if (match(CLASS)) return classDeclaration();
+      if (match(IMPORT)) return importDeclaration();
+      if (check(FUN) && checkNext(IDENTIFIER)) {
+        consume(FUN, null);
+        return function("function");
+      }
+      if (match(VAR)) return varDeclaration();
+      return statement();
+    } catch (ParseError error) {
+      synchronize();
+      return null;
+    }
+  }
+
+  private Stmt classDeclaration() {
+    Token name = consume(IDENTIFIER, "Expect class name.");
+
+    //Expr.Variable superclass = null;
+    List<Expr.Variable> superclasses = null;
+    if (match(LESS)) {
+      superclasses = new ArrayList<>();
+      do {
+        consume(IDENTIFIER, "Expect superclass name.");
+        superclasses.add(new Expr.Variable(previous()));
+      } while (match(COMMA));
+    }
+    consume(LEFT_BRACE, "Expect '{' before class body.");
+    List<Stmt.Function> methods = new ArrayList<>();
+    while (!check(RIGHT_BRACE) && !isAtEnd()) {
+      methods.add(function("method"));
+    }
+
+    consume(RIGHT_BRACE, "Expect '}' after class body.");
+    // return new Stmt.Class(name, superclass, methods);
+    return new Stmt.Class(name, superclasses, methods);
+  }
+
+  private Stmt importDeclaration() {
+   Token name = consume(STRING, "Expect import file name");
+   consume(SEMICOLON, "Expect ';' after import declaration");
+   try {
+      Object value = name.lexeme.replaceAll("^\"|\"$", "");;
+      Main.main(new String[]{Main.importPath + "/" + value + ".lox"});
+    } catch (Exception e) {
+      System.out.println(e);
+      throw new RuntimeError(name, "Illegal import: " + name.lexeme);
+    } finally {
+      return new Stmt.Import(name);
+    }
+  }
+
+  private Stmt statement() {
+    if (match(FOR)) return forStatement();
+    if (match(IF)) return ifStatement();
+    if (match(PRINT)) return printStatement();
+    if (match(RETURN)) return returnStatement();
+    if (match(WHILE)) return whileStatement();
+    if (match(LEFT_BRACE)) return new Stmt.Block(block());
+    if (match(BREAK)) return breakStatement();
+    if (match(CONTINUE)) return continueStatement();
+    return expressionStatement();
+  }
+
+  private Stmt forStatement() {
+    consume(LEFT_PAREN, "Expect '(' after 'for'.");
+    Stmt initializer;
+    if (match(SEMICOLON)) {
+      initializer = null;
+    } else if (match(VAR)) {
+      initializer = varDeclaration();
+    } else {
+      initializer = expressionStatement();
+    }
+    Expr condition = null;
+    if(!check(SEMICOLON)) {
+      condition = expression();
+    }
+    consume(SEMICOLON, "Expect ';' after loop condition.");
+    Expr increment = null;
+    if(!check(RIGHT_PAREN)) {
+      increment = expression();
+    }
+    consume(RIGHT_PAREN, "Expect ')' after for clauses.");
+
+    try{
+        loopDepth++;
+    Stmt body = statement();
+    if (increment != null) {
+      body = new Stmt.Block(
+        Arrays.asList(
+          body,
+          new Stmt.Expression(increment)
+        )
+      );
+    }
+    if (condition == null) condition = new Expr.Literal(true);
+    body = new Stmt.While(condition, body);
+    if (initializer != null) {
+      body = new Stmt.Block(Arrays.asList(initializer, body));
+    }
+    return body;
+    } finally {
+        loopDepth--;
+    }
+  }
+
+  private Stmt ifStatement() {
+    consume(LEFT_PAREN, "Expect '(' after 'if'");
+    Expr condition = expression();
+    consume(RIGHT_PAREN, "Expect ')' after if condition.");
+
+    Stmt thenBranch = statement();
+    Stmt elseBranch = null;
+    if (match(ELSE)) {
+      elseBranch = statement();
+    }
+
+    return new Stmt.If(condition, thenBranch, elseBranch);
+  }
+
+  private Stmt printStatement() {
+    Expr value = expression();
+    consume(SEMICOLON, "Expect ';' after value.");
+    return new Stmt.Print(value);
+  }
+
+  private Stmt returnStatement() {
+    Token keyword = previous();
+    Expr value = null;
+    if (!check(SEMICOLON)) {
+      value = expression();
+    }
+
+    consume(SEMICOLON, "Expect ';' after return value.");
+    return new Stmt.Return(keyword, value);
+  }
+
+  private Stmt varDeclaration() {
+    Token name = consume(IDENTIFIER, "Expect variable name.");
+    Expr initializer = null;
+    if (match(EQUAL)) {
+      initializer = expression();
+    }
+    consume(SEMICOLON, "Expect ';' after variable declaration.");
+    return new Stmt.Var(name, initializer);
+  }
+
+  private Stmt whileStatement() {
+    consume(LEFT_PAREN, "Expect '(' after 'while'.");
+    Expr condition = expression();
+    consume(RIGHT_PAREN, "Expect ')' after condition.");
+    try {
+        loopDepth++;
+    Stmt body = statement();
+    return new Stmt.While(condition, body);
+    } finally {
+        loopDepth--;
+    }
+  }
+
+  private Stmt breakStatement() {
+    if (loopDepth == 0) {
+        error(previous(), "Break statement must be inside loop.");
+    }
+    consume(SEMICOLON, "Expect ';' after 'break'.");
+    return new Stmt.Break();
+  }
+
+  private Stmt continueStatement() {
+    if (loopDepth == 0) {
+        error(previous(), "Continue statement must be inside loop.");
+    }
+    consume(SEMICOLON, "Expect ';' after 'continue'.");
+    return new Stmt.Continue();
+  }
+
+  private Stmt expressionStatement() {
+    Expr expr = expression();
+    if(allowExpression && isAtEnd()) {
+        foundExpression = true;
+    } else {
+        consume(SEMICOLON, "Expect ';' after expression.");
+    }
+    return new Stmt.Expression(expr);
+  }
+
+  private Stmt.Function function(String kind) {
+    Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
+    return new Stmt.Function(name, functionBody(kind));
+  }
+
+  private Expr.Function functionBody(String kind) {
+    List<Token> parameters = null; //new ArrayList<>();
+    // STUDENT: Really only implementation of the if statement to
+    //          allow null parameters for methods.
+    if (!kind.equals("method") || check(LEFT_PAREN)) {
+      consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
+      parameters = new ArrayList<>();
+      if (!check(RIGHT_PAREN)) {
+        do {
+          if (parameters.size() >= 255) {
+            error(peek(), "Can't have more than 255 parameters.");
+          }
+          parameters.add(
+            consume(IDENTIFIER, "Expect parameter name."));
+          } while (match(COMMA));
+      }
+      consume(RIGHT_PAREN, "Expect ')' after parameters.");
+    }
+    consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
+    List<Stmt> body = block();
+    // STUDENT
+    return new Expr.Function(parameters, body);
+  }
+
+  private List<Stmt> block() {
+    List<Stmt> statements = new ArrayList<>();
+
+    while(!check(RIGHT_BRACE) && !isAtEnd()) {
+      statements.add(declaration());
+    }
+
+    consume(RIGHT_BRACE, "Expect '}' after block.");
+    return statements;
+  }
+
+  private Expr expression() {
+    return assignment();
+  }
+
+  private Expr assignment() {
+    Expr expr = or();
+    if (match(EQUAL)) {
+      Token equals = previous();
+      Expr value = assignment();
+
+      if (expr instanceof Expr.Variable) {
+        Token name = ((Expr.Variable)expr).name;
+        return new Expr.Assign(name, value);
+      } else if (expr instanceof Expr.Get) {
+        Expr.Get get = (Expr.Get)expr;
+        return new Expr.Set(get.object, get.name, value);
+      }
+
+      error(equals, "Invalid assignment target.");
+    }
+    return expr;
+  }
+
+  private Expr or() {
+    Expr expr = and();
+    while (match(OR)) {
+      Token operator = previous();
+      Expr right = and();
+      expr = new Expr.Logical(expr, operator, right);
+    }
+    return expr;
+  }
+
+  private Expr and() {
+    Expr expr = conditional();
+    while (match(AND)) {
+      Token operator = previous();
+      Expr right = conditional();
+      expr = new Expr.Logical(expr, operator, right);
+    }
+    return expr;
+  }
+
+  private Expr conditional() {
+    Expr expr = equality();
+    if (match(QUESTION)) {
+        Expr thenBranch = expression();
+        consume(COLON, "Expect ':' after then branch.");
+        Expr elseBranch = conditional();
+        expr = new Expr.Conditional(expr, thenBranch, elseBranch);
+    }
+    return expr;
+  }
+
+  private Expr equality() {
+    Expr expr = comparison();
+    while(match(BANG_EQUAL, EQUAL_EQUAL)) {
+      Token operator = previous();
+      Expr right = comparison();
+      expr = new Expr.Binary(expr, operator, right);
+    }
+    return expr;
+  }
+
+  private Expr comparison() {
+    Expr expr = term();
+    while(match(GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)) {
+      Token operator = previous();
+      Expr right = term();
+      expr = new Expr.Binary(expr, operator, right);
+    }
+    return expr;
+  }
+
+  private Expr term() {
+    Expr expr = factor();
+    while(match(MINUS, PLUS)) {
+      Token operator = previous();
+      Expr right = factor();
+      expr = new Expr.Binary(expr, operator, right);
+    }
+
+    return expr;
+  }
+
+  private Expr factor() {
+    Expr expr = unary();
+    while(match(SLASH, STAR)) {
+      Token operator = previous();
+      Expr right = unary();
+      expr = new Expr.Binary(expr, operator, right);
+    }
+
+    return expr;
+  }
+
+  private Expr unary() {
+    if(match(BANG, MINUS)) {
+      Token operator = previous();
+      Expr right = unary();
+      return new Expr.Unary(operator, right);
+    }
+    return call();
+  }
+
+  private Expr call() {
+    Expr expr = primary();
+    while (true) {
+      if (match(LEFT_PAREN)) {
+        expr = finishCall(expr);
+      } else if (match(DOT)) {
+        Token name = consume(IDENTIFIER,
+          "Expect property name after '.'.");
+        expr = new Expr.Get(expr, name);
+      } else {
+        break;
+      }
+    }
+
+    return expr;
+  }
+
+  private Expr finishCall(Expr callee) {
+    List<Expr> arguments = new ArrayList<>();
+    if (!check(RIGHT_PAREN)) {
+      do {
+        if (arguments.size() >= 255) {
+          error(peek(), "Can't have more than 255 arguments.");
+        }
+        arguments.add(expression());
+      } while (match(COMMA));
+    }
+    Token paren = consume(RIGHT_PAREN, "Expect ')' after arguments.");
+    return new Expr.Call(callee, paren, arguments);
+  }
+
+  private Expr primary() {
+    if (match(FALSE)) return new Expr.Literal(false);
+    if (match(TRUE)) return new Expr.Literal(true);
+    if (match(NIL)) return new Expr.Literal(null);
+
+    if (match(FUN)) return functionBody("function");
+
+    if (match(NUMBER, STRING)) {
+      return new Expr.Literal(previous().literal);
+    }
+
+    if (match(SUPER)) {
+      Token keyword = previous();
+      consume(DOT, "Expect '.' after super.");
+      Token method = consume(IDENTIFIER,
+        "Expect superclass name.");
+      return new Expr.Super(keyword, method);
+    }
+
+    if (match(THIS)) return new Expr.This(previous());
+
+    if (match(IDENTIFIER)) {
+      return new Expr.Variable(previous());
+    }
+
+    if (match(LEFT_PAREN)) {
+      Expr expr = expression();
+      consume(RIGHT_PAREN, "Expect ')' after expression.");
+      return new Expr.Grouping(expr);
+    }
+
+    throw error(peek(), "Expected expression.");
+  }
+
+  private boolean match(TokenType... types) {
+    for (TokenType type : types) {
+      if (check(type)) {
+        advance();
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private Token consume(TokenType type, String message) {
+    if (check(type)) return advance();
+    throw error(peek(), message);
+  }
+
+  private boolean check(TokenType type) {
+    if (isAtEnd()) return false;
+    return peek().type == type;
+  }
+
+  private boolean checkNext(TokenType tokenType) {
+    if (isAtEnd()) return false;
+    if (tokens.get(current + 1).type == EOF) return false;
+    return tokens.get(current + 1).type == tokenType;
+  }
+
+  private Token advance() {
+    if (!isAtEnd()) current++;
+    return previous();
+  }
+
+  private boolean isAtEnd() {
+    return peek().type == EOF;
+  }
+
+  private Token peek() {
+    return tokens.get(current);
+  }
+
+  private Token previous() {
+    return tokens.get(current - 1);
+  }
+
+  private ParseError error(Token token, String message) {
+    Main.error(token, message);
+    return new ParseError();
+  }
+
+  private void synchronize() {
+    advance();
+    while (!isAtEnd()) {
+      if (previous().type == SEMICOLON) return;
+
+      switch (peek().type) {
+        case CLASS:
+        case IMPORT:
+        case FUN:
+        case VAR:
+        case FOR:
+        case IF:
+        case WHILE:
+        case PRINT:
+        case RETURN:
+          return;
+      }
+
+      advance();
+    }
+  }
+
+}
+package com.interpreter.lox;
+
+import java.util.Map;
+import java.util.List;
+import java.util.Stack;
+import java.util.HashMap;
+
+class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
+
+  private final Interpreter interpreter;
+  private final Stack<Map<String, Variable>> scopes = new Stack<>();
+  private FunctionType currentFunction = FunctionType.NONE;
+
+  private enum VariableState {
+    DECLARED,
+    DEFINED,
+    READ
+  }
+
+  private static class Variable {
+    final Token name;
+    VariableState state;
+
+    private Variable(Token name, VariableState state) {
+      this.name = name;
+      this.state = state;
+    }
+  }
+
+  Resolver(Interpreter interpreter) {
+    this.interpreter = interpreter;
+  }
+
+  private enum FunctionType {
+    NONE,
+    FUNCTION,
+    INITIALIZER,
+    METHOD,
+    LAMBDA
+  }
+
+  private enum ClassType {
+    NONE,
+    CLASS,
+    SUBCLASS
+  }
+
+  private ClassType currentClass = ClassType.NONE;
+
+  void resolve(List<Stmt> statements) {
+    for (Stmt statement : statements) {
+      resolve(statement);
+    }
+  }
+
+  private void resolveFunction(
+      Expr.Function function,
+      FunctionType type
+  ) {
+    FunctionType enclosingFunction = currentFunction;
+    currentFunction = type;
+    beginScope();
+    if ( function.parameters != null ) {
+      for (Token param : function.parameters) {
+        declare(param);
+        define(param);
+      }
+    }
+    resolve(function.body);
+    endScope();
+    currentFunction = enclosingFunction;
+  }
+
+  private void resolve(Stmt stmt) {
+    stmt.accept(this);
+  }
+
+  private void resolve(Expr expr) {
+    expr.accept(this);
+  }
+
+  @Override
+  public Void visitBlockStmt(Stmt.Block stmt) {
+    beginScope();
+    resolve(stmt.statements);
+    endScope();
+    return null;
+  }
+
+  @Override
+
+  public Void visitClassStmt(Stmt.Class stmt) {
+    ClassType enclosingClass = currentClass;
+    currentClass = ClassType.CLASS;
+    declare(stmt.name);
+    define(stmt.name);
+
+    if (stmt.superclasses != null) {
+      for (Expr.Variable inheritance : stmt.superclasses) {
+        if (stmt.name.lexeme.equals(inheritance.name.lexeme)) {
+          Main.error(stmt.name,
+            "A class can't inherit from itself!");
+        }
+      }
+    }
+
+    if (stmt.superclasses != null) {
+      currentClass = ClassType.SUBCLASS;
+      for(Expr.Variable superclass: stmt.superclasses) {
+        resolve(superclass);
+      }
+    }
+
+    if (stmt.superclasses != null) {
+      for(int i = stmt.superclasses.size() - 1; i >= 0; i--) {
+        beginScope();
+        scopes.peek().put("super", new Variable(stmt.superclasses.get(i).name, VariableState.DECLARED));
+      }
+    }
+
+    beginScope();
+    scopes.peek().put("this", new Variable(stmt.name, VariableState.DECLARED));
+
+    for (Stmt.Function method : stmt.methods) {
+      FunctionType declaration = FunctionType.METHOD;
+      if (method.name.lexeme.equals("init")) {
+        declaration = FunctionType.INITIALIZER;
+      }
+      resolveFunction(method.function, declaration);
+    }
+
+    endScope();
+
+    if (stmt.superclasses != null) {
+      for (Expr.Variable superclass : stmt.superclasses) {
+        endScope();
+      }
+    }
+
+    currentClass = enclosingClass;
+    return null;
+  }
+
+  @Override
+  public Void visitBreakStmt(Stmt.Break stmt) {
+    return null;
+  }
+
+  @Override
+  public Void visitImportStmt(Stmt.Import stmt) {
+    return null;
+  }
+
+  @Override
+  public Void visitContinueStmt(Stmt.Continue stmt) {
+    return null;
+  }
+
+  @Override
+  public Void visitExpressionStmt(Stmt.Expression stmt) {
+    resolve(stmt.expression);
+    return null;
+  }
+
+  @Override
+  public Void visitFunctionStmt(Stmt.Function stmt) {
+    declare(stmt.name);
+    define(stmt.name);
+    resolveFunction(stmt.function, FunctionType.FUNCTION);
+    return null;
+  }
+
+  @Override
+  public Void visitVarStmt(Stmt.Var stmt) {
+    declare(stmt.name);
+    if(stmt.initializer != null) {
+      resolve(stmt.initializer);
+    }
+    define(stmt.name);
+    return null;
+  }
+
+  @Override
+  public Void visitVariableExpr(Expr.Variable expr) {
+    if (!scopes.isEmpty() &&
+        scopes.peek().containsKey(expr.name.lexeme) &&
+        scopes.peek().get(expr.name.lexeme).state == VariableState.DECLARED) {
+          Main.error(expr.name,
+            "Can't read local variable in its own intitializer.");
+    }
+    resolveLocal(expr, expr.name, true);
+    return null;
+  }
+
+  @Override
+  public Void visitAssignExpr(Expr.Assign expr) {
+    resolve(expr.value);
+    resolveLocal(expr, expr.name, false);
+    return null;
+  }
+
+  @Override
+  public Void visitFunctionExpr(Expr.Function expr) {
+    resolveFunction(expr, FunctionType.LAMBDA);
+    return null;
+  }
+
+  @Override
+  public Void visitConditionalExpr(Expr.Conditional expr) {
+    resolve(expr.expression);
+    resolve(expr.thenBranch);
+    if (expr.elseBranch != null) resolve(expr.elseBranch);
+    return null;
+  }
+
+  @Override
+  public Void visitBinaryExpr(Expr.Binary expr) {
+    resolve(expr.left);
+    resolve(expr.right);
+    return null;
+  }
+
+  @Override
+  public Void visitCallExpr(Expr.Call expr) {
+    resolve(expr.callee);
+    for (Expr argument : expr.arguments) {
+      resolve(argument);
+    }
+    return null;
+  }
+
+  @Override
+  public Void visitGetExpr(Expr.Get expr) {
+    resolve(expr.object);
+    return null;
+  }
+
+  @Override
+  public Void visitGroupingExpr(Expr.Grouping expr) {
+    resolve(expr.expression);
+    return null;
+  }
+
+  @Override
+  public Void visitLiteralExpr(Expr.Literal expr) {
+    return null;
+  }
+
+  @Override
+  public Void visitLogicalExpr(Expr.Logical expr) {
+    resolve(expr.left);
+    resolve(expr.right);
+    return null;
+  }
+
+  @Override
+  public Void visitSetExpr(Expr.Set expr) {
+    resolve(expr.value);
+    resolve(expr.object);
+    return null;
+  }
+
+  @Override
+  public Void visitSuperExpr(Expr.Super expr) {
+    if (currentClass == ClassType.NONE) {
+      Main.error(expr.keyword,
+        "Can't use 'super' outside of a class.");
+    } else if (currentClass != ClassType.SUBCLASS) {
+      Main.error(expr.keyword,
+        "Can't use 'super' in a class with no superclass.");
+    }
+    resolveLocal(expr, expr.keyword, true);
+    return null;
+  }
+
+  @Override
+  public Void visitThisExpr(Expr.This expr) {
+    if (currentClass == ClassType.NONE) {
+      Main.error(expr.keyword,
+        "Can't use 'this' outside of a class.");
+      return null;
+    }
+    resolveLocal(expr, expr.keyword,true);
+    return null;
+  }
+
+  @Override
+  public Void visitUnaryExpr(Expr.Unary expr) {
+    resolve(expr.right);
+    return null;
+  }
+
+  @Override
+  public Void visitIfStmt(Stmt.If stmt) {
+    resolve(stmt.condition);
+    resolve(stmt.thenBranch);
+    if (stmt.elseBranch != null) resolve(stmt.elseBranch);
+    return null;
+  }
+
+  @Override
+  public Void visitPrintStmt(Stmt.Print stmt) {
+    resolve(stmt.expression);
+    return null;
+  }
+
+  @Override
+  public Void visitReturnStmt(Stmt.Return stmt) {
+    if (currentFunction == FunctionType.NONE) {
+      Main.error(stmt.keyword, "Can't return from top-level code.");
+    }
+    if (stmt.value != null) {
+      if (currentFunction == FunctionType.INITIALIZER) {
+        Main.error(stmt.keyword,
+          "Can't return a value from an initializer.");
+      }
+      resolve(stmt.value);
+    }
+    return null;
+  }
+
+  @Override
+  public Void visitWhileStmt(Stmt.While stmt) {
+    resolve(stmt.condition);
+    resolve(stmt.body);
+    return null;
+  }
+
+  private void beginScope() {
+    scopes.push(new HashMap<String, Variable>());
+  }
+
+  private void endScope() {
+    Map<String, Variable> scope = scopes.pop();
+    for (Map.Entry<String, Variable> entry: scope.entrySet()) {
+      if(entry.getValue().state == VariableState.DEFINED) {
+        Main.error(entry.getValue().name, "Local variable is never used.");
+      }
+    }
+  }
+
+  private void declare(Token name) {
+    if (scopes.isEmpty()) return;
+    Map<String, Variable> scope = scopes.peek();
+    if (scope.containsKey(name.lexeme)) {
+      Main.error(name,
+        "Already a variable with this name in this scope.");
+    }
+    scope.put(name.lexeme, new Variable(name, VariableState.DECLARED));
+  }
+
+  private void define(Token name) {
+    if (scopes.isEmpty()) return;
+    scopes.peek().get(name.lexeme).state = VariableState.DEFINED;
+  }
+
+  private void resolveLocal(Expr expr, Token name, boolean isRead) {
+    for (int i = scopes.size() - 1; i >= 0; i--) {
+      if (scopes.get(i).containsKey(name.lexeme)) {
+        interpreter.resolve(expr, scopes.size() - 1 - i);
+        if(isRead) {
+          scopes.get(i).get(name.lexeme).state = VariableState.READ;
+        }
+        return;
+      }
+    }
+  }
+}
+package com.interpreter.lox;
+
+class Return extends RuntimeException {
+
+  final Object value;
+
+  Return(Object value) {
+    super(null, null, false, false);
+    this.value = value;
+  }
+
+}
+package com.interpreter.lox;
+
+class RuntimeError extends RuntimeException {
+  final Token token;
+
+  RuntimeError(Token token, String message) {
+    super(message);
+    this.token = token;
+  }
+}
+package com.interpreter.lox;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static com.interpreter.lox.TokenType.*;
+
+class Scanner {
+
+  private static final Map<String, TokenType> keywords;
+
+  static {
+    keywords = new HashMap<>();
+    keywords.put("and",    AND);
+    keywords.put("class",  CLASS);
+    keywords.put("else",   ELSE);
+    keywords.put("false",  FALSE);
+    keywords.put("for",    FOR);
+    keywords.put("fun",    FUN);
+    keywords.put("if",     IF);
+    keywords.put("nil",    NIL);
+    keywords.put("or",     OR);
+    keywords.put("print",  PRINT);
+    keywords.put("return", RETURN);
+    keywords.put("super",  SUPER);
+    keywords.put("this",   THIS);
+    keywords.put("true",   TRUE);
+    keywords.put("var",    VAR);
+    keywords.put("while",  WHILE);
+    keywords.put("break",  BREAK);
+    keywords.put("continue", CONTINUE);
+    keywords.put("import", IMPORT);
+  }
+
+  private final String source;
+  private final List<Token> tokens = new ArrayList<>();
+
+  private int start = 0;
+  private int current = 0;
+  private int line = 1;
+
+  Scanner(String source) {
+    this.source = source;
+  }
+
+  List<Token> scanTokens() {
+    while (!isAtEnd()) {
+      start = current;
+      scanToken();
+    }
+    tokens.add(new Token(EOF, "", null, line));
+    return tokens;
+  }
+
+  private void scanToken() {
+    char c = advance();
+    switch (c) {
+      case '(': addToken(LEFT_PAREN); break;
+      case ')': addToken(RIGHT_PAREN); break;
+      case '{': addToken(LEFT_BRACE); break;
+      case '}': addToken(RIGHT_BRACE); break;
+      case ',': addToken(COMMA); break;
+      case '.': addToken(DOT); break;
+      case '-': addToken(MINUS); break;
+      case '+': addToken(PLUS); break;
+      case ';': addToken(SEMICOLON); break;
+      case '*': addToken(STAR); break;
+      case '?': addToken(QUESTION); break;
+      case ':': addToken(COLON); break;
+      case '!':
+        addToken(match('=') ? BANG_EQUAL : BANG);
+        break;
+      case '=':
+        addToken(match('=') ? EQUAL_EQUAL : EQUAL);
+        break;
+      case '<':
+        addToken(match('=') ? LESS_EQUAL : LESS);
+        break;
+      case '>':
+        addToken(match('=') ? GREATER_EQUAL : GREATER);
+        break;
+      case '/':
+        if (match('/')) {
+          while (peek() != '\n' && !isAtEnd()) advance();
+        } else if (match('*')) {
+          while (peek() != '/' && !isAtEnd()) advance();
+          advance();
+        } else {
+          addToken(SLASH);
+        }
+        break;
+      case ' ':
+      case '\r':
+      case '\t':
+        // Ignore whitespace.
+        break;
+      case '\n':
+        line++;
+        break;
+      case '"': string(); break;
+      default:
+       if (isDigit(c)) {
+          number();
+        } else if (isAlpha(c)) {
+          identifier();
+        } else {
+          Main.error(line, "Unexpected character.");
+        }
+        break;
+    }
+  }
+
+  private void identifier() {
+    while(isAlphaNumeric(peek())) advance();
+    String text = source.substring(start, current);
+    TokenType type = keywords.get(text);
+    if (type == null) type = IDENTIFIER;
+    addToken(type);
+  }
+
+  private void number() {
+    while (isDigit(peek())) advance();
+
+    if (peek() == '.' && isDigit(peekNext())) {
+      advance();
+      while (isDigit(peek())) advance();
+    }
+
+    addToken(NUMBER,
+        Double.parseDouble(source.substring(start, current)));
+  }
+
+  private void string() {
+    while (peek() != '"' && !isAtEnd()) {
+      if (peek() == '\n') line++;
+      advance();
+    }
+
+    if (isAtEnd()) {
+      Main.error(line, "Unterminated string.");
+      return;
+    }
+
+    advance();
+
+    String value = source.substring(start + 1, current - 1);
+    addToken(STRING, value);
+  }
+
+  private boolean match(char expected) {
+    if (isAtEnd()) return false;
+    if (source.charAt(current) != expected) return false;
+
+    current++;
+    return true;
+  }
+
+  private char peek() {
+    if (isAtEnd()) return '\0';
+    return source.charAt(current);
+  }
+
+  private char peekNext() {
+    if (current + 1 >= source.length()) return '\0';
+    return source.charAt(current + 1);
+  }
+
+  private boolean isAlpha(char c) {
+    return (c >= 'a' && c <= 'z') ||
+           (c >= 'A' && c <= 'Z') ||
+            c == '_';
+  }
+
+  private boolean isAlphaNumeric(char c) {
+    return isAlpha(c) || isDigit(c);
+  }
+
+  private boolean isDigit(char c) {
+    return c >= '0' && c <= '9';
+  }
+
+  private boolean isAtEnd() {
+    return current >= source.length();
+  }
+
+  private char advance() {
+    return source.charAt(current++);
+  }
+
+  private void addToken(TokenType type) {
+    addToken(type, null);
+  }
+
+  private void addToken(TokenType type, Object literal) {
+    String text = source.substring(start, current);
+    tokens.add(new Token(type, text, literal, line));
+  }
+}
+package com.interpreter.lox;
+
+import java.util.List;
+
+abstract class Stmt {
+  interface Visitor<R> {
+    R visitBlockStmt(Block stmt);
+    R visitClassStmt(Class stmt);
+    R visitBreakStmt(Break stmt);
+    R visitContinueStmt(Continue stmt);
+    R visitExpressionStmt(Expression stmt);
+    R visitIfStmt(If stmt);
+    R visitPrintStmt(Print stmt);
+    R visitReturnStmt(Return stmt);
+    R visitVarStmt(Var stmt);
+    R visitWhileStmt(While stmt);
+    R visitFunctionStmt(Function stmt);
+    R visitImportStmt(Import stmt);
+  }
+  static class Block extends Stmt {
+    Block(List<Stmt> statements) {
+      this.statements = statements;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitBlockStmt(this);
+    }
+
+    final List<Stmt> statements;
+  }
+  static class Class extends Stmt {
+    Class(Token name, List<Expr.Variable> superclasses, List<Stmt.Function> methods) {
+      this.name = name;
+      this.superclasses = superclasses;
+      this.methods = methods;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitClassStmt(this);
+    }
+
+    final Token name;
+    final List<Expr.Variable> superclasses;
+    final List<Stmt.Function> methods;
+  }
+  static class Break extends Stmt {
+    Break() {
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitBreakStmt(this);
+    }
+
+  }
+  static class Continue extends Stmt {
+    Continue() {
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitContinueStmt(this);
+    }
+
+  }
+  static class Expression extends Stmt {
+    Expression(Expr expression) {
+      this.expression = expression;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitExpressionStmt(this);
+    }
+
+    final Expr expression;
+  }
+  static class If extends Stmt {
+    If(Expr condition, Stmt thenBranch, Stmt elseBranch) {
+      this.condition = condition;
+      this.thenBranch = thenBranch;
+      this.elseBranch = elseBranch;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitIfStmt(this);
+    }
+
+    final Expr condition;
+    final Stmt thenBranch;
+    final Stmt elseBranch;
+  }
+  static class Print extends Stmt {
+    Print(Expr expression) {
+      this.expression = expression;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitPrintStmt(this);
+    }
+
+    final Expr expression;
+  }
+  static class Return extends Stmt {
+    Return(Token keyword, Expr value) {
+      this.keyword = keyword;
+      this.value = value;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitReturnStmt(this);
+    }
+
+    final Token keyword;
+    final Expr value;
+  }
+  static class Var extends Stmt {
+    Var(Token name, Expr initializer) {
+      this.name = name;
+      this.initializer = initializer;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitVarStmt(this);
+    }
+
+    final Token name;
+    final Expr initializer;
+  }
+  static class While extends Stmt {
+    While(Expr condition, Stmt body) {
+      this.condition = condition;
+      this.body = body;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitWhileStmt(this);
+    }
+
+    final Expr condition;
+    final Stmt body;
+  }
+  static class Function extends Stmt {
+    Function(Token name, Expr.Function function) {
+      this.name = name;
+      this.function = function;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitFunctionStmt(this);
+    }
+
+    final Token name;
+    final Expr.Function function;
+  }
+  static class Import extends Stmt {
+    Import(Token path) {
+      this.path = path;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitImportStmt(this);
+    }
+
+    final Token path;
+  }
+
+  abstract <R> R accept(Visitor<R> visitor);
+}
+package com.interpreter.lox;
+
+class Token {
+  final TokenType type;
+  final String lexeme;
+  final Object literal;
+  final int line;
+
+  Token(TokenType type, String lexeme, Object literal, int line) {
+    this.type = type;
+    this.lexeme = lexeme;
+    this.literal = literal;
+    this.line = line;
+  }
+
+  public String toString() {
+    return type + " " + lexeme + " " + literal;
+  }
+}package com.interpreter.lox;
+
+enum TokenType {
+  // Single-character tokens.
+  LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,
+  COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR,
+  QUESTION, COLON,
+
+  // One or two character tokens.
+  BANG, BANG_EQUAL, EQUAL, EQUAL_EQUAL,
+  GREATER, GREATER_EQUAL, LESS, LESS_EQUAL,
+
+  // Literals
+  IDENTIFIER, STRING, NUMBER,
+
+  // REMOVE
+  BREAK, CONTINUE,
+  // REMOVE
+
+  // Keywords.
+  AND, CLASS, ELSE, FALSE, FUN, FOR, IF, NIL, OR,
+  PRINT, RETURN, SUPER, THIS, TRUE, VAR, WHILE, EOF,
+  IMPORT
+
+}
