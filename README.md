@@ -2,7 +2,7 @@
 
 # CMPSC 201: Reimplementing the `Lox` language
 
-Completing this project involves reimplementing _all_ of the `Lox` language (`inheritance`, optional) in another language. There exists a running list
+Completing this project involves reimplementing _all_ of the `Lox` language in another language. There exists a running list
 of various reimplementations maintained by @munificent here:
 
 * [List of `Lox` reimplementations](https://github.com/munificent/craftinginterpreters/wiki/Lox-implementations)
